@@ -98,4 +98,6 @@ Content/Fab/
 *.uasset
 *.umap
 
+Plugins/UE4Duino/
+
 # End of https://www.toptal.com/developers/gitignore/api/unrealengine
