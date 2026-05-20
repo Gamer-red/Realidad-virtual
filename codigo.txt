@@ -1,0 +1,100 @@
+#include <Wire.h>
+
+const int MPU = 0x68;
+
+int16_t AcX, AcY, AcZ;
+int16_t GyX, GyY, GyZ;
+
+long AcX_offset = 0;
+long AcY_offset = 0;
+long AcZ_offset = 0;
+
+int lastPower = 0;
+unsigned long lastTrigger = 0;
+
+void setup() {
+
+  Wire.begin();
+  Serial.begin(9600);
+
+  // Despertar MPU6050
+  Wire.beginTransmission(MPU);
+  Wire.write(0x6B);
+  Wire.write(0);
+  Wire.endTransmission(true);
+
+  Serial.println("Calibrando... NO mover");
+
+  delay(1000);
+
+  // Calibración acelerómetro
+  for (int i = 0; i < 500; i++) {
+
+    leerMPU();
+
+    AcX_offset += AcX;
+    AcY_offset += AcY;
+    AcZ_offset += AcZ;
+
+    delay(5);
+  }
+
+  AcX_offset /= 500;
+  AcY_offset /= 500;
+  AcZ_offset /= 500;
+
+  Serial.println("Listo");
+}
+
+void loop() {
+
+  leerMPU();
+
+  // Quitar offset
+  AcX -= AcX_offset;
+  AcY -= AcY_offset;
+  AcZ -= AcZ_offset;
+
+  // Intensidad total del movimiento
+  int power = abs(AcX) + abs(AcY) + abs(AcZ);
+
+  // Cambio brusco
+  int delta = power - lastPower;
+
+  lastPower = power;
+
+  unsigned long now = millis();
+
+  // Detección de dominada
+  if (power > 15000 && delta > 4000 && (now - lastTrigger > 300)) {
+
+    Serial.println("SE_HIZO_DOMINADA");
+
+    lastTrigger = now;
+  }
+
+  delay(30);
+}
+
+void leerMPU() {
+
+  Wire.beginTransmission(MPU);
+  Wire.write(0x3B);
+  Wire.endTransmission(false);
+
+  Wire.requestFrom(MPU, 14, true);
+
+  if (Wire.available() >= 14) {
+
+    AcX = Wire.read() << 8 | Wire.read();
+    AcY = Wire.read() << 8 | Wire.read();
+    AcZ = Wire.read() << 8 | Wire.read();
+
+    Wire.read();
+    Wire.read();
+
+    GyX = Wire.read() << 8 | Wire.read();
+    GyY = Wire.read() << 8 | Wire.read();
+    GyZ = Wire.read() << 8 | Wire.read();
+  }
+}
